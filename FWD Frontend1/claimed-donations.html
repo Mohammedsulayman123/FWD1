@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claimed Donations - Feeding India</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/dashboard.css">
+    <script>
+        // Check authentication before page loads
+        if (!sessionStorage.getItem('currentUser')) {
+            window.location.href = 'login.html';
+        }
+        const user = JSON.parse(sessionStorage.getItem('currentUser'));
+        if (user.type !== 'ngo') {
+            window.location.href = 'login.html';
+        }
+    </script>
+    <style>
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-claimed {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .status-completed {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .status-expired {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .donation-card {
+            position: relative;
+            padding: 1.5rem;
+            background: #1c1d22;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .donation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .donation-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn-complete {
+            background-color: #10b981;
+        }
+
+        .btn-complete:hover {
+            background-color: #059669;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .filter-select {
+            background: #2a2b31;
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            min-width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">Feeding India</div>
+            <nav>
+                <a href="ngo-dashboard.html">Available Donations</a>
+                <a href="claimed-donations.html" class="active">Claimed Donations</a>
+                <a href="#history">History</a>
+                <a href="#profile">Profile</a>
+                <a href="login.html" class="logout">Logout</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="dashboard-header">
+                <h1>Claimed Donations</h1>
+                <div class="filter-bar">
+                    <select class="filter-select">
+                        <option value="all">All Status</option>
+                        <option value="claimed">Claimed</option>
+                        <option value="completed">Completed</option>
+                        <option value="expired">Expired</option>
+                    </select>
+                </div>
+            </header>
+
+            <div class="donations-grid">
+                <!-- Load and display claimed donations -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function loadClaimedDonations() {
+            const donationsGrid = document.querySelector('.donations-grid');
+            const claimedDonations = JSON.parse(localStorage.getItem('claimedDonations')) || [];
+            console.log('Claimed Donations:', claimedDonations); // Log the claimed donations
+
+            if (claimedDonations.length === 0) {
+                donationsGrid.innerHTML = '<p>No claimed donations yet.</p>';
+                return;
+            }
+
+            donationsGrid.innerHTML = claimedDonations.map(donation => `
+                <div class="donation-card" data-donation-id="${donation.id}">
+                    <div class="donation-header">
+                        <h3>${donation.foodType}</h3>
+                        <span class="status-badge status-${donation.status}">${donation.status.charAt(0).toUpperCase() + donation.status.slice(1)}</span>
+                    </div>
+                    <div class="donation-details">
+                        <p><strong>Restaurant:</strong> ${donation.restaurant}</p>
+                        <p><strong>Claimed Time:</strong> ${new Date(donation.claimedTime).toLocaleString()}</p>
+                        <p><strong>Location:</strong> ${donation.location}</p>
+                        <p><strong>Pickup Before:</strong> ${new Date(new Date(donation.claimedTime).getTime() + 2 * 60 * 60 * 1000).toLocaleString()}</p>
+                        <p><strong>Quantity:</strong> ${donation.quantity}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load donations when page loads
+        document.addEventListener('DOMContentLoaded', loadClaimedDonations);
+
+        // Handle status filter
+        const statusFilter = document.querySelector('.filter-select');
+        statusFilter.addEventListener('change', function(e) {
+            const status = e.target.value;
+            const cards = document.querySelectorAll('.donation-card');
+            cards.forEach(card => {
+                const cardStatus = card.querySelector('.status-badge').textContent.toLowerCase();
+                if (status === 'all' || status === cardStatus) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Function to mark donation as completed
+        function markAsCompleted(donationId) {
+            let claimedDonations = JSON.parse(localStorage.getItem('claimedDonations')) || [];
+            claimedDonations = claimedDonations.map(donation => {
+                if (donation.id === donationId) {
+                    return { ...donation, status: 'completed' };
+                }
+                return donation;
+            });
+
+            localStorage.setItem('claimedDonations', JSON.stringify(claimedDonations));
+            loadClaimedDonations(); // Reload to show updated status
+        }
+
+        function claimDonation(button) {
+            const card = button.closest('.donation-card');
+            const donationId = card.dataset.donationId;
+            
+            // Get the donation details
+            const donation = {
+                id: donationId,
+                foodType: card.querySelector('h3').textContent,
+                restaurant: card.querySelector('p:nth-child(1)').textContent.split(': ')[1],
+                location: card.querySelector('p:nth-child(2)').textContent.split(': ')[1],
+                quantity: card.querySelector('p:nth-child(3)').textContent.split(': ')[1],
+                claimedTime: new Date().toISOString(),
+                status: 'claimed'
+            };
+
+            // Get existing claimed donations or initialize empty array
+            let claimedDonations = JSON.parse(localStorage.getItem('claimedDonations') || '[]');
+            
+            // Add the new claimed donation
+            claimedDonations.push(donation);
+            
+            // Save to localStorage
+            localStorage.setItem('claimedDonations', JSON.stringify(claimedDonations));
+
+            // Show success message
+            alert('Donation claimed successfully!');
+
+            // Remove the card from available donations
+            card.remove();
+
+            // Redirect to claimed donations page
+            window.location.href = 'claimed-donations.html';
+        }
+    </script>
+</body>
+</html> 
